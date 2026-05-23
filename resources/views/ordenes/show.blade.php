@@ -16,7 +16,6 @@
 @endphp
 
 <div class="row g-4">
-    {{-- Info de la orden --}}
     <div class="col-md-4">
         <div class="card border-0 shadow-sm">
             <div class="card-header bg-dark text-white">
@@ -25,7 +24,11 @@
             <div class="card-body">
                 <p><strong>Cliente:</strong> {{ $orden['customer_name'] }}</p>
                 <p><strong>Vendedor:</strong> {{ $orden['seller']['name'] ?? '-' }}</p>
-                <p><strong>Estado:</strong> <span class="badge bg-{{ $badge }}">{{ ucfirst(str_replace('_', ' ', $orden['status'])) }}</span></p>
+                <p><strong>Estado:</strong>
+                    <span class="badge bg-{{ $badge }}">
+                        {{ ucfirst(str_replace('_', ' ', $orden['status'])) }}
+                    </span>
+                </p>
                 <p><strong>Total:</strong> ${{ number_format($total, 2) }}</p>
                 <p><strong>Fecha:</strong> {{ \Carbon\Carbon::parse($orden['created_at'])->format('d/m/Y H:i') }}</p>
                 @if($orden['notes'])
@@ -34,7 +37,7 @@
             </div>
 
             @if(in_array(session('role'), ['vendedor', 'administrador']))
-            <div class="card-footer d-flex gap-2">
+            <div class="card-footer d-flex gap-2 flex-wrap">
                 @if($orden['status'] === 'en_proceso')
                 <form method="POST" action="{{ route('ordenes.sendToCashier', $orden['id']) }}">
                     @csrf
@@ -45,10 +48,10 @@
                 @endif
                 @if(in_array($orden['status'], ['pendiente', 'en_proceso']))
                 <form method="POST" action="{{ route('ordenes.cancel', $orden['id']) }}"
-                      onsubmit="return confirm('¿Cancelar esta orden?')">
+                      onsubmit="return confirm('¿Cancelar esta orden? Los productos volverán a estar disponibles.')">
                     @csrf
                     <button class="btn btn-danger btn-sm">
-                        <i class="bi bi-x-circle me-1"></i> Cancelar
+                        <i class="bi bi-x-circle me-1"></i> Cancelar Orden
                     </button>
                 </form>
                 @endif
@@ -57,32 +60,39 @@
         </div>
     </div>
 
-    {{-- Productos de la orden --}}
     <div class="col-md-8">
-        {{-- Agregar producto --}}
         @if(in_array(session('role'), ['vendedor', 'administrador']) && in_array($orden['status'], ['pendiente', 'en_proceso']))
         <div class="card border-0 shadow-sm mb-4">
             <div class="card-header bg-dark text-white">
-                <i class="bi bi-plus-circle me-1"></i> Agregar Producto
+                <i class="bi bi-search me-1"></i> Buscar y Agregar Producto
             </div>
             <div class="card-body">
-                @if(session('error'))
-                <div class="alert alert-danger">{{ session('error') }}</div>
-                @endif
-                <form method="POST" action="{{ route('ordenes.addItem', $orden['id']) }}" class="d-flex gap-2">
-                    @csrf
-                    <input type="text" name="product_id" class="form-control"
-                           placeholder="ID del producto reservado" required>
-                    <button type="submit" class="btn btn-primary text-nowrap">
-                        <i class="bi bi-plus"></i> Agregar
-                    </button>
-                </form>
-                <small class="text-muted">Solo productos con estado <strong>reservado</strong> pueden agregarse.</small>
+                <div id="alertaProducto"></div>
+                <input type="text" id="buscadorProducto" class="form-control mb-2"
+                       placeholder="Escribe nombre o código del producto...">
+                <div id="listaProductos" style="max-height:250px; overflow-y:auto; display:none;">
+                    <table class="table table-sm table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Código</th>
+                                <th>Nombre</th>
+                                <th>Talla</th>
+                                <th>Color</th>
+                                <th>Precio</th>
+                                <th>Ubicación</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody id="tablaProductos"></tbody>
+                    </table>
+                </div>
+                <small class="text-muted mt-1 d-block">
+                    Solo productos <strong>disponibles</strong>. Se reservan automáticamente al agregarlos.
+                </small>
             </div>
         </div>
         @endif
 
-        {{-- Lista de productos --}}
         <div class="card border-0 shadow-sm">
             <div class="card-header bg-dark text-white">
                 <i class="bi bi-bag me-1"></i> Productos en la Orden
@@ -113,7 +123,7 @@
                             <td>
                                 <form method="POST"
                                       action="{{ route('ordenes.removeItem', [$orden['id'], $item['id']]) }}"
-                                      onsubmit="return confirm('¿Remover este producto?')">
+                                      onsubmit="return confirm('¿Remover este producto? Volverá a estar disponible.')">
                                     @csrf @method('DELETE')
                                     <button class="btn btn-sm btn-outline-danger">
                                         <i class="bi bi-trash"></i>
@@ -147,4 +157,93 @@
         </div>
     </div>
 </div>
+@endsection
+
+@section('scripts')
+<script>
+let timeoutBusqueda;
+const ordenId = {{ $orden['id'] }};
+const apiToken = document.querySelector('meta[name="api-token"]').content;
+const csrfToken = document.querySelector('meta[name="csrf-token"]').content;
+
+document.getElementById('buscadorProducto')?.addEventListener('input', function() {
+    clearTimeout(timeoutBusqueda);
+    const q = this.value.trim();
+    if (q.length < 2) {
+        document.getElementById('listaProductos').style.display = 'none';
+        return;
+    }
+    timeoutBusqueda = setTimeout(() => buscarProductos(q), 400);
+});
+
+function buscarProductos(q) {
+    fetch(`/api/products?search=${encodeURIComponent(q)}&status=disponible`, {
+        headers: {
+            'Accept': 'application/json',
+            'Authorization': 'Bearer ' + apiToken
+        }
+    })
+    .then(r => r.json())
+    .then(productos => {
+        const tbody = document.getElementById('tablaProductos');
+        const lista = document.getElementById('listaProductos');
+
+        if (!Array.isArray(productos) || productos.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-2">No se encontraron productos disponibles.</td></tr>';
+        } else {
+            tbody.innerHTML = productos.map(p => `
+                <tr id="fila-${p.id}">
+                    <td><code>${p.code}</code></td>
+                    <td>${p.name}</td>
+                    <td>${p.size}</td>
+                    <td>${p.color}</td>
+                    <td>$${parseFloat(p.price).toFixed(2)}</td>
+                    <td>${p.warehouse ? 'Estante ' + p.warehouse.shelf + ' - Módulo ' + p.warehouse.module : 'Sin asignar'}</td>
+                    <td>
+                        <button type="button" onclick="agregarProducto(${p.id}, this)" class="btn btn-sm btn-success">
+                            <i class="bi bi-plus"></i> Agregar
+                        </button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+        lista.style.display = 'block';
+    })
+    .catch(() => {
+        document.getElementById('tablaProductos').innerHTML =
+            '<tr><td colspan="7" class="text-center text-danger">Error al buscar productos.</td></tr>';
+        document.getElementById('listaProductos').style.display = 'block';
+    });
+}
+
+function agregarProducto(productId, btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+
+    fetch(`/ordenes/${ordenId}/agregar-producto`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'Accept': 'application/json',
+            'X-CSRF-TOKEN': csrfToken
+        },
+        body: `product_id=${productId}&_token=${csrfToken}`
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            window.location.reload();
+        } else {
+            document.getElementById('alertaProducto').innerHTML =
+                `<div class="alert alert-danger alert-dismissible">
+                    ${data.message}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>`;
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-plus"></i> Agregar';
+        }
+    })
+    .catch(() => window.location.reload());
+}
+</script>
 @endsection

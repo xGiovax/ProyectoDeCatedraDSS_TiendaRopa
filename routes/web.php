@@ -66,4 +66,7 @@ Route::middleware('auth.web')->group(function () {
 
     // Historial (solo admin)
     Route::get('/historial', [HistorialController::class, 'index'])->name('historial.index');
+
+    // Reservar producto
+    Route::post('/productos/{id}/reservar', [ProductosController::class, 'reserve'])->name('productos.reserve');
 });

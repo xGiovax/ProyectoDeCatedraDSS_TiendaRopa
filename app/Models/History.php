@@ -6,6 +6,8 @@ use Illuminate\Database\Eloquent\Model;
 
 class History extends Model
 {
+    protected $table = 'history';
+
     protected $fillable = [
         'product_id', 'user_id', 'action',
         'from_status', 'to_status', 'notes'

@@ -3,21 +3,13 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Http;
+use App\Models\Warehouse;
 
 class BodegasController extends Controller
 {
-    private function api(string $method, string $endpoint, array $data = [])
-    {
-        return Http::withToken(session('token'))
-            ->$method(config('app.url').'/api/'.$endpoint, $data);
-    }
-
     public function index()
     {
-        $response = $this->api('get', 'warehouses');
-        $bodegas  = $response->ok() ? $response->json() : [];
-
+        $bodegas = Warehouse::with('products')->get()->toArray();
         return view('bodegas.index', compact('bodegas'));
     }
 
@@ -28,35 +20,45 @@ class BodegasController extends Controller
 
     public function store(Request $request)
     {
-        $response = $this->api('post', 'warehouses', $request->except('_token'));
+        $request->validate([
+            'shelf'       => 'required|string',
+            'module'      => 'required|string',
+            'description' => 'nullable|string',
+        ]);
 
-        if ($response->failed()) {
-            return back()->withErrors($response->json('errors') ?? ['error' => $response->json('message')])->withInput();
-        }
+        Warehouse::create($request->except('_token'));
 
-        return redirect()->route('bodegas.index')->with('success', 'Bodega creada correctamente.');
+        return redirect()->route('bodegas.index')
+                         ->with('success', 'Bodega creada correctamente.');
     }
 
     public function edit(string $id)
     {
-        $bodega = $this->api('get', 'warehouses/'.$id)->json();
+        $bodega = Warehouse::findOrFail($id)->toArray();
         return view('bodegas.edit', compact('bodega'));
     }
 
     public function update(Request $request, string $id)
     {
-        $response = $this->api('put', 'warehouses/'.$id, $request->except(['_token', '_method']));
+        $warehouse = Warehouse::findOrFail($id);
 
-        if ($response->failed()) {
-            return back()->withErrors($response->json('errors') ?? ['error' => $response->json('message')])->withInput();
-        }
+        $request->validate([
+            'shelf'       => 'required|string',
+            'module'      => 'required|string',
+            'description' => 'nullable|string',
+        ]);
 
-        return redirect()->route('bodegas.index')->with('success', 'Bodega actualizada correctamente.');
+        $warehouse->update($request->except(['_token', '_method']));
+
+        return redirect()->route('bodegas.index')
+                         ->with('success', 'Bodega actualizada correctamente.');
     }
 
     public function destroy(string $id)
     {
-        $this->api('delete', 'warehouses/'.$id);
-        return redirect()->route('bodegas.index')->with('success', 'Bodega eliminada correctamente.');
+        Warehouse::findOrFail($id)->delete();
+
+        return redirect()->route('bodegas.index')
+                         ->with('success', 'Bodega eliminada correctamente.');
     }
 }

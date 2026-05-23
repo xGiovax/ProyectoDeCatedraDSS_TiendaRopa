@@ -3,22 +3,40 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Http;
+use App\Models\Sale;
+use App\Models\Product;
+use App\Models\SaleItem;
 
 class ReportesController extends Controller
 {
-    private function api(string $method, string $endpoint, array $data = [])
-    {
-        return Http::withToken(session('token'))
-            ->$method(config('app.url').'/api/'.$endpoint, $data);
-    }
-
     public function index()
     {
-        $dashboard   = $this->api('get', 'reports/dashboard')->json();
-        $ventasDiarias = $this->api('get', 'reports/ventas-diarias')->json();
-        $masVendidos = $this->api('get', 'reports/productos-mas-vendidos')->json();
-        $inventario  = $this->api('get', 'reports/inventario')->json();
+        $dashboard = [
+            'total_ventas'          => Sale::count(),
+            'ingreso_total'         => Sale::sum('total'),
+            'productos_vendidos'    => Product::where('status', 'vendido')->count(),
+            'productos_disponibles' => Product::where('status', 'disponible')->count(),
+        ];
+
+        $ventasDiarias = Sale::selectRaw('DATE(paid_at) as fecha, COUNT(*) as total_ventas, SUM(total) as ingresos')
+            ->groupBy('fecha')
+            ->orderBy('fecha', 'desc')
+            ->get()
+            ->toArray();
+
+        $masVendidos = SaleItem::selectRaw('product_id, COUNT(*) as total_vendido')
+            ->with('product')
+            ->groupBy('product_id')
+            ->orderBy('total_vendido', 'desc')
+            ->limit(10)
+            ->get()
+            ->toArray();
+
+        $inventario = [
+            'disponibles' => Product::where('status', 'disponible')->count(),
+            'reservados'  => Product::where('status', 'reservado')->count(),
+            'vendidos'    => Product::where('status', 'vendido')->count(),
+        ];
 
         return view('reportes.index', compact('dashboard', 'ventasDiarias', 'masVendidos', 'inventario'));
     }

@@ -3,67 +3,106 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Http;
+use App\Models\Product;
+use App\Models\Warehouse;
 
 class ProductosController extends Controller
 {
-    private function api(string $method, string $endpoint, array $data = [])
-    {
-        return Http::withToken(session('token'))
-            ->$method(config('app.url').'/api/'.$endpoint, $data);
-    }
-
     public function index(Request $request)
     {
-        $params = [];
-        if ($request->search)   $params['search']   = $request->search;
-        if ($request->status)   $params['status']   = $request->status;
-        if ($request->category) $params['category'] = $request->category;
+        $query = Product::with('warehouse');
 
-        $response = $this->api('get', 'products', $params);
-        $productos = $response->ok() ? $response->json() : [];
+        if ($request->search) {
+            $query->where(function($q) use ($request) {
+                $q->where('name', 'like', '%'.$request->search.'%')
+                  ->orWhere('code', 'like', '%'.$request->search.'%');
+            });
+        }
+
+        if ($request->status) {
+            $query->where('status', $request->status);
+        }
+
+        if ($request->category) {
+            $query->where('category', $request->category);
+        }
+
+        $productos = $query->orderBy('code')->get()->toArray();
 
         return view('productos.index', compact('productos'));
     }
 
     public function create()
     {
-        $bodegas = $this->api('get', 'warehouses')->json();
+        $bodegas = Warehouse::all()->toArray();
         return view('productos.create', compact('bodegas'));
     }
 
     public function store(Request $request)
     {
-        $response = $this->api('post', 'products', $request->except('_token'));
+        $request->validate([
+            'name'         => 'required|string',
+            'code'         => 'required|string|unique:products',
+            'category'     => 'required|string',
+            'size'         => 'required|string',
+            'color'        => 'required|string',
+            'price'        => 'required|numeric|min:0',
+            'warehouse_id' => 'nullable|exists:warehouses,id',
+            'description'  => 'nullable|string',
+        ]);
 
-        if ($response->failed()) {
-            return back()->withErrors($response->json('errors') ?? ['error' => $response->json('message')])->withInput();
-        }
+        Product::create($request->except('_token'));
 
-        return redirect()->route('productos.index')->with('success', 'Producto creado correctamente.');
+        return redirect()->route('productos.index')
+                         ->with('success', 'Producto creado correctamente.');
     }
 
     public function edit(string $id)
     {
-        $producto = $this->api('get', 'products/'.$id)->json();
-        $bodegas  = $this->api('get', 'warehouses')->json();
+        $producto = Product::with('warehouse')->findOrFail($id)->toArray();
+        $bodegas  = Warehouse::all()->toArray();
         return view('productos.edit', compact('producto', 'bodegas'));
     }
 
     public function update(Request $request, string $id)
     {
-        $response = $this->api('put', 'products/'.$id, $request->except(['_token', '_method']));
+        $product = Product::findOrFail($id);
 
-        if ($response->failed()) {
-            return back()->withErrors($response->json('errors') ?? ['error' => $response->json('message')])->withInput();
-        }
+        $request->validate([
+            'name'         => 'sometimes|string',
+            'code'         => 'sometimes|string|unique:products,code,'.$id,
+            'category'     => 'sometimes|string',
+            'size'         => 'sometimes|string',
+            'color'        => 'sometimes|string',
+            'price'        => 'sometimes|numeric|min:0',
+            'warehouse_id' => 'nullable|exists:warehouses,id',
+            'description'  => 'nullable|string',
+        ]);
 
-        return redirect()->route('productos.index')->with('success', 'Producto actualizado correctamente.');
+        $product->update($request->except(['_token', '_method']));
+
+        return redirect()->route('productos.index')
+                         ->with('success', 'Producto actualizado correctamente.');
     }
 
     public function destroy(string $id)
     {
-        $this->api('delete', 'products/'.$id);
-        return redirect()->route('productos.index')->with('success', 'Producto eliminado correctamente.');
+        Product::findOrFail($id)->delete();
+
+        return redirect()->route('productos.index')
+                         ->with('success', 'Producto eliminado correctamente.');
+    }
+
+    public function reserve(string $id)
+    {
+        $product = Product::findOrFail($id);
+
+        if ($product->status !== 'disponible') {
+            return back()->with('error', 'El producto no está disponible para reservar.');
+        }
+
+        $product->update(['status' => 'reservado']);
+
+        return back()->with('success', 'Producto reservado correctamente.');
     }
 }

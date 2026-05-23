@@ -3,6 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="api-token" content="{{ session('token') }}">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>@yield('title', 'Tienda Ropa')</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
@@ -46,7 +48,6 @@
 </head>
 <body>
 
-{{-- Sidebar --}}
 <div class="sidebar d-flex flex-column">
     <div class="brand-logo">
         <h5 class="text-white mb-0">
@@ -95,9 +96,27 @@
                     <i class="bi bi-clock-history"></i> Historial
                 </a>
             </li>
+            <li class="nav-item">
+                <a href="{{ route('ordenes.index') }}"
+                   class="nav-link {{ request()->routeIs('ordenes.*') ? 'active' : '' }}">
+                    <i class="bi bi-cart3"></i> Órdenes
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="{{ route('ventas.index') }}"
+                   class="nav-link {{ request()->routeIs('ventas.*') ? 'active' : '' }}">
+                    <i class="bi bi-cash-coin"></i> Ventas
+                </a>
+            </li>
             @endif
 
-            @if(in_array(session('role'), ['administrador', 'vendedor']))
+            @if(session('role') === 'vendedor')
+            <li class="nav-item">
+                <a href="{{ route('productos.index') }}"
+                   class="nav-link {{ request()->routeIs('productos.*') ? 'active' : '' }}">
+                    <i class="bi bi-box-seam"></i> Productos
+                </a>
+            </li>
             <li class="nav-item">
                 <a href="{{ route('ordenes.index') }}"
                    class="nav-link {{ request()->routeIs('ordenes.*') ? 'active' : '' }}">
@@ -106,7 +125,7 @@
             </li>
             @endif
 
-            @if(in_array(session('role'), ['cajero', 'administrador']))
+            @if(session('role') === 'cajero')
             <li class="nav-item">
                 <a href="{{ route('ventas.index') }}"
                    class="nav-link {{ request()->routeIs('ventas.*') ? 'active' : '' }}">
@@ -131,12 +150,10 @@
     </div>
 </div>
 
-{{-- Navbar top --}}
 <div class="navbar-top">
     <h6 class="mb-0">@yield('page-title', 'Dashboard')</h6>
 </div>
 
-{{-- Contenido principal --}}
 <div class="main-content mt-3">
     @if(session('success'))
         <div class="alert alert-success alert-dismissible fade show">

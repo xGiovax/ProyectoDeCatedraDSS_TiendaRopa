@@ -3,21 +3,14 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Hash;
+use App\Models\User;
 
 class UsuariosController extends Controller
 {
-    private function api(string $method, string $endpoint, array $data = [])
-    {
-        return Http::withToken(session('token'))
-            ->$method(config('app.url').'/api/'.$endpoint, $data);
-    }
-
     public function index()
     {
-        $response  = $this->api('get', 'users');
-        $usuarios  = $response->ok() ? $response->json() : [];
-
+        $usuarios = User::all()->toArray();
         return view('usuarios.index', compact('usuarios'));
     }
 
@@ -28,35 +21,59 @@ class UsuariosController extends Controller
 
     public function store(Request $request)
     {
-        $response = $this->api('post', 'users', $request->except('_token'));
+        $request->validate([
+            'name'     => 'required|string|max:255',
+            'email'    => 'required|email|unique:users',
+            'password' => 'required|min:6',
+            'role'     => 'required|in:administrador,vendedor,cajero',
+        ]);
 
-        if ($response->failed()) {
-            return back()->withErrors($response->json('errors') ?? ['error' => $response->json('message')])->withInput();
-        }
+        User::create([
+            'name'     => $request->name,
+            'email'    => $request->email,
+            'password' => Hash::make($request->password),
+            'role'     => $request->role,
+            'active'   => true,
+        ]);
 
-        return redirect()->route('usuarios.index')->with('success', 'Usuario creado correctamente.');
+        return redirect()->route('usuarios.index')
+                         ->with('success', 'Usuario creado correctamente.');
     }
 
     public function edit(string $id)
     {
-        $usuario = $this->api('get', 'users/'.$id)->json();
+        $usuario = User::findOrFail($id)->toArray();
         return view('usuarios.edit', compact('usuario'));
     }
 
     public function update(Request $request, string $id)
     {
-        $response = $this->api('put', 'users/'.$id, $request->except(['_token', '_method']));
+        $user = User::findOrFail($id);
 
-        if ($response->failed()) {
-            return back()->withErrors($response->json('errors') ?? ['error' => $response->json('message')])->withInput();
+        $request->validate([
+            'name'   => 'required|string|max:255',
+            'email'  => 'required|email|unique:users,email,'.$id,
+            'role'   => 'required|in:administrador,vendedor,cajero',
+            'active' => 'required|boolean',
+        ]);
+
+        $data = $request->only('name', 'email', 'role', 'active');
+
+        if ($request->filled('password')) {
+            $data['password'] = Hash::make($request->password);
         }
 
-        return redirect()->route('usuarios.index')->with('success', 'Usuario actualizado correctamente.');
+        $user->update($data);
+
+        return redirect()->route('usuarios.index')
+                         ->with('success', 'Usuario actualizado correctamente.');
     }
 
     public function destroy(string $id)
     {
-        $this->api('delete', 'users/'.$id);
-        return redirect()->route('usuarios.index')->with('success', 'Usuario eliminado correctamente.');
+        User::findOrFail($id)->delete();
+
+        return redirect()->route('usuarios.index')
+                         ->with('success', 'Usuario eliminado correctamente.');
     }
 }

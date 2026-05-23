@@ -19,53 +19,61 @@ class SaleController extends Controller
     }
 
     public function process(Request $request, Order $order)
-    {
-        $request->validate([
-            'payment_method' => 'required|in:efectivo,tarjeta',
-        ]);
+{
+    $request->validate([
+        'payment_method' => 'required|in:efectivo,tarjeta',
+    ]);
 
-        if ($order->status !== 'enviada_a_caja') {
-            return response()->json([
-                'message' => 'La orden no está lista para pagar.'
-            ], 400);
-        }
-
-        $total = $order->items->sum('unit_price');
-
-        $sale = Sale::create([
-            'order_id'       => $order->id,
-            'cashier_id'     => $request->user()->id,
-            'total'          => $total,
-            'payment_method' => $request->payment_method,
-            'paid_at'        => now(),
-        ]);
-
-        foreach ($order->items as $item) {
-            SaleItem::create([
-                'sale_id'    => $sale->id,
-                'product_id' => $item->product_id,
-                'unit_price' => $item->unit_price,
-            ]);
-
-            $item->product->update(['status' => 'vendido']);
-
-            History::create([
-                'product_id'  => $item->product_id,
-                'user_id'     => $request->user()->id,
-                'action'      => 'vendido',
-                'from_status' => 'reservado',
-                'to_status'   => 'vendido',
-                'notes'       => 'Venta #'.$sale->id.' procesada.',
-            ]);
-        }
-
-        $order->update(['status' => 'pagada']);
-
+    if ($order->status !== 'enviada_a_caja') {
         return response()->json([
-            'message' => 'Pago procesado correctamente.',
-            'sale'    => $sale->load('order.items.product')
-        ], 201);
+            'message' => 'La orden no está lista para pagar o ya fue procesada.'
+        ], 400);
     }
+
+    // Verificar que no tenga ya una venta
+    if ($order->sale) {
+        return response()->json([
+            'message' => 'Esta orden ya fue pagada.'
+        ], 400);
+    }
+
+    $total = $order->items->sum('unit_price');
+
+    $sale = Sale::create([
+        'order_id'       => $order->id,
+        'cashier_id'     => $request->user()->id,
+        'total'          => $total,
+        'payment_method' => $request->payment_method,
+        'paid_at'        => now(),
+    ]);
+
+    foreach ($order->items as $item) {
+        SaleItem::create([
+            'sale_id'    => $sale->id,
+            'product_id' => $item->product_id,
+            'unit_price' => $item->unit_price,
+        ]);
+
+        $item->product->update(['status' => 'vendido']);
+
+        History::create([
+            'product_id'  => $item->product_id,
+            'user_id'     => $request->user()->id,
+            'action'      => 'vendido',
+            'from_status' => 'reservado',
+            'to_status'   => 'vendido',
+            'notes'       => 'Venta #'.$sale->id.' procesada.',
+        ]);
+    }
+
+    // Marcar orden como pagada
+    $order->update(['status' => 'pagada']);
+
+    return response()->json([
+        'message' => 'Pago procesado correctamente.',
+        'sale'    => $sale->load('order.items.product')
+    ], 201);
+}
 
     public function show(Sale $sale)
     {

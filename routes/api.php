@@ -29,35 +29,33 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('reports/inventario', [ReportController::class, 'inventario']);
         Route::get('history', [HistoryController::class, 'index']);
         Route::get('history/{history}', [HistoryController::class, 'show']);
+        Route::post('products', [ProductController::class, 'store']);
+        Route::put('products/{product}', [ProductController::class, 'update']);
+        Route::delete('products/{product}', [ProductController::class, 'destroy']);
+    });
+
+    // Todos los roles autenticados pueden ver y gestionar órdenes y productos
+    Route::middleware('role:administrador,vendedor,cajero')->group(function () {
+        Route::get('products', [ProductController::class, 'index']);
+        Route::get('products/{product}', [ProductController::class, 'show']);
+        Route::get('orders', [OrderController::class, 'index']);
+        Route::get('orders/{order}', [OrderController::class, 'show']);
+        Route::get('sales', [SaleController::class, 'index']);
+        Route::get('sales/{sale}', [SaleController::class, 'show']);
     });
 
     // Administrador y Vendedor
     Route::middleware('role:administrador,vendedor')->group(function () {
-        Route::get('products', [ProductController::class, 'index']);
-        Route::get('products/{product}', [ProductController::class, 'show']);
         Route::post('products/{product}/reserve', [ProductController::class, 'reserve']);
         Route::post('orders', [OrderController::class, 'store']);
-        Route::get('orders', [OrderController::class, 'index']);
-        Route::get('orders/{order}', [OrderController::class, 'show']);
         Route::post('orders/{order}/items', [OrderController::class, 'addItem']);
         Route::delete('orders/{order}/items/{item}', [OrderController::class, 'removeItem']);
         Route::post('orders/{order}/send-to-cashier', [OrderController::class, 'sendToCashier']);
         Route::post('orders/{order}/cancel', [OrderController::class, 'cancel']);
     });
 
-    // Solo Administrador puede hacer CRUD de productos
-    Route::middleware('role:administrador')->group(function () {
-        Route::post('products', [ProductController::class, 'store']);
-        Route::put('products/{product}', [ProductController::class, 'update']);
-        Route::delete('products/{product}', [ProductController::class, 'destroy']);
-    });
-
-    // Cajero
+    // Cajero y Administrador
     Route::middleware('role:cajero,administrador')->group(function () {
-        Route::get('sales', [SaleController::class, 'index']);
-        Route::get('sales/{sale}', [SaleController::class, 'show']);
         Route::post('orders/{order}/process-payment', [SaleController::class, 'process']);
-        Route::get('orders', [OrderController::class, 'index']);
-        Route::get('orders/{order}', [OrderController::class, 'show']);
     });
 });

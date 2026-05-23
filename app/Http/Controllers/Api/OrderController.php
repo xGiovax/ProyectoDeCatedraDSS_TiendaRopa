@@ -52,48 +52,59 @@ class OrderController extends Controller
     }
 
     public function addItem(Request $request, Order $order)
-    {
-        $request->validate([
-            'product_id' => 'required|exists:products,id',
-        ]);
+{
+    $productId = $request->input('product_id');
 
-        if (!in_array($order->status, ['pendiente', 'en_proceso'])) {
-            return response()->json([
-                'message' => 'No se pueden agregar productos a esta orden.'
-            ], 400);
-        }
-
-        $product = Product::findOrFail($request->product_id);
-
-        if ($product->status !== 'reservado') {
-            return response()->json([
-                'message' => 'El producto debe estar reservado primero.'
-            ], 400);
-        }
-
-        $existing = OrderItem::where('order_id', $order->id)
-                             ->where('product_id', $product->id)
-                             ->first();
-
-        if ($existing) {
-            return response()->json([
-                'message' => 'El producto ya está en la orden.'
-            ], 400);
-        }
-
-        OrderItem::create([
-            'order_id'   => $order->id,
-            'product_id' => $product->id,
-            'unit_price' => $product->price,
-        ]);
-
-        $order->update(['status' => 'en_proceso']);
-
-        return response()->json([
-            'message' => 'Producto agregado a la orden.',
-            'order'   => $order->load('items.product')
-        ]);
+    if (!$productId) {
+        return response()->json(['message' => 'product_id es requerido'], 400);
     }
+
+    if (!in_array($order->status, ['pendiente', 'en_proceso'])) {
+        return response()->json(['message' => 'No se pueden agregar productos a esta orden. Estado: '.$order->status], 400);
+    }
+
+    $product = \App\Models\Product::find($productId);
+
+    if (!$product) {
+        return response()->json(['message' => 'Producto no encontrado con ID: '.$productId], 400);
+    }
+
+    if ($product->status !== 'disponible') {
+        return response()->json(['message' => 'El producto no está disponible. Estado actual: '.$product->status], 400);
+    }
+
+    $existing = \App\Models\OrderItem::where('order_id', $order->id)
+                         ->where('product_id', $product->id)
+                         ->first();
+
+    if ($existing) {
+        return response()->json(['message' => 'El producto ya está en la orden.'], 400);
+    }
+
+    $product->update(['status' => 'reservado']);
+
+    \App\Models\History::create([
+        'product_id'  => $product->id,
+        'user_id'     => $request->user()->id,
+        'action'      => 'reservado',
+        'from_status' => 'disponible',
+        'to_status'   => 'reservado',
+        'notes'       => 'Reservado al agregar a orden #'.$order->id,
+    ]);
+
+    \App\Models\OrderItem::create([
+        'order_id'   => $order->id,
+        'product_id' => $product->id,
+        'unit_price' => $product->price,
+    ]);
+
+    $order->update(['status' => 'en_proceso']);
+
+    return response()->json([
+        'message' => 'Producto agregado y reservado correctamente.',
+        'order'   => $order->load('items.product')
+    ]);
+}
 
     public function removeItem(Request $request, Order $order, OrderItem $item)
     {
