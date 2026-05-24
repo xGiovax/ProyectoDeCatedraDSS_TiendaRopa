@@ -44,6 +44,7 @@ Route::middleware('auth.web')->group(function () {
     Route::get('/ventas', [VentasController::class, 'index'])->name('ventas.index');
     Route::get('/ventas/{id}', [VentasController::class, 'show'])->name('ventas.show');
     Route::post('/ventas/{orderId}/procesar', [VentasController::class, 'process'])->name('ventas.process');
+    Route::post('/ventas/{orderId}/cancelar', [VentasController::class, 'cancel'])->name('ventas.cancel');
 
     // Usuarios (solo admin)
     Route::get('/usuarios', [UsuariosController::class, 'index'])->name('usuarios.index');

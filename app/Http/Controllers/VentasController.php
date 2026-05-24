@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Http;
 use App\Models\Order;
 use App\Models\Sale;
 use App\Models\SaleItem;
@@ -11,13 +10,6 @@ use App\Models\History;
 
 class VentasController extends Controller
 {
-    private function api(string $method, string $endpoint, array $data = [])
-    {
-        return Http::withToken(session('token'))
-            ->timeout(10)
-            ->$method(config('app.url').'/api/'.$endpoint, $data);
-    }
-
     public function index()
     {
         $ordenes = Order::with(['items.product', 'seller'])
@@ -26,6 +18,7 @@ class VentasController extends Controller
             ->toArray();
 
         $ventas = Sale::with(['order.items.product', 'cashier'])
+            ->orderBy('created_at', 'desc')
             ->get()
             ->toArray();
 
@@ -80,6 +73,36 @@ class VentasController extends Controller
         $order->update(['status' => 'pagada']);
 
         return redirect()->route('ventas.index')->with('success', 'Pago procesado correctamente.');
+    }
+
+    public function cancel(string $orderId)
+    {
+        $order = Order::with('items.product')->find($orderId);
+
+        if (!$order) {
+            return back()->with('error', 'Orden no encontrada.');
+        }
+
+        if ($order->status !== 'enviada_a_caja') {
+            return back()->with('error', 'Solo se pueden cancelar órdenes enviadas a caja.');
+        }
+
+        foreach ($order->items as $item) {
+            $item->product->update(['status' => 'disponible']);
+
+            History::create([
+                'product_id'  => $item->product_id,
+                'user_id'     => session('user.id'),
+                'action'      => 'cancelado',
+                'from_status' => 'reservado',
+                'to_status'   => 'disponible',
+                'notes'       => 'Orden #'.$order->id.' cancelada en caja.',
+            ]);
+        }
+
+        $order->update(['status' => 'cancelada']);
+
+        return redirect()->route('ventas.index')->with('success', 'Orden cancelada correctamente.');
     }
 
     public function show(string $id)

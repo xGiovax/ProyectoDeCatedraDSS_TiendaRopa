@@ -21,7 +21,7 @@
                             <th>Productos</th>
                             <th>Total</th>
                             <th>Fecha</th>
-                            <th>Procesar Pago</th>
+                            <th>Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -34,7 +34,7 @@
                             <td>{{ count($orden['items']) }}</td>
                             <td>${{ number_format($total, 2) }}</td>
                             <td>{{ \Carbon\Carbon::parse($orden['created_at'])->format('d/m/Y H:i') }}</td>
-                            <td>
+                            <td class="d-flex gap-2">
                                 <button class="btn btn-sm btn-success"
                                         data-bs-toggle="modal"
                                         data-bs-target="#modalPago"
@@ -43,6 +43,14 @@
                                         data-total="{{ number_format($total, 2) }}">
                                     <i class="bi bi-credit-card me-1"></i> Cobrar
                                 </button>
+                                <form method="POST"
+                                      action="{{ route('ventas.cancel', $orden['id']) }}"
+                                      onsubmit="return confirm('¿Cancelar esta orden? Los productos volverán a estar disponibles.')">
+                                    @csrf
+                                    <button type="submit" class="btn btn-sm btn-danger">
+                                        <i class="bi bi-x-circle me-1"></i> Cancelar
+                                    </button>
+                                </form>
                             </td>
                         </tr>
                         @empty
@@ -127,13 +135,15 @@
                         <label class="form-label">Método de Pago</label>
                         <div class="d-flex gap-3">
                             <div class="form-check">
-                                <input class="form-check-input" type="radio" name="payment_method" value="efectivo" id="efectivo" checked>
+                                <input class="form-check-input" type="radio" name="payment_method"
+                                       value="efectivo" id="efectivo" checked>
                                 <label class="form-check-label" for="efectivo">
                                     <i class="bi bi-cash me-1"></i> Efectivo
                                 </label>
                             </div>
                             <div class="form-check">
-                                <input class="form-check-input" type="radio" name="payment_method" value="tarjeta" id="tarjeta">
+                                <input class="form-check-input" type="radio" name="payment_method"
+                                       value="tarjeta" id="tarjeta">
                                 <label class="form-check-label" for="tarjeta">
                                     <i class="bi bi-credit-card me-1"></i> Tarjeta
                                 </label>
@@ -151,7 +161,6 @@
         </div>
     </div>
 </div>
-
 @endsection
 
 @section('scripts')

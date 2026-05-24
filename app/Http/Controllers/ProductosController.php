@@ -27,9 +27,30 @@ class ProductosController extends Controller
             $query->where('category', $request->category);
         }
 
+        if ($request->size) {
+            $query->where('size', $request->size);
+        }
+
+        if ($request->color) {
+            $query->where('color', $request->color);
+        }
+
+        if ($request->shelf && $request->module) {
+            $query->whereHas('warehouse', function($q) use ($request) {
+                $q->where('shelf', $request->shelf)
+                  ->where('module', $request->module);
+            });
+        }
+
         $productos = $query->orderBy('code')->get()->toArray();
 
-        return view('productos.index', compact('productos'));
+        // Datos para los filtros dinámicos
+        $categorias = Product::distinct()->orderBy('category')->pluck('category')->toArray();
+        $tallas     = Product::distinct()->orderBy('size')->pluck('size')->toArray();
+        $colores    = Product::distinct()->orderBy('color')->pluck('color')->toArray();
+        $ubicaciones = Warehouse::orderBy('shelf')->orderBy('module')->get()->toArray();
+
+        return view('productos.index', compact('productos', 'categorias', 'tallas', 'colores', 'ubicaciones'));
     }
 
     public function create()

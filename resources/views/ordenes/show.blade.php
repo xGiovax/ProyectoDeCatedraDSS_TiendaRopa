@@ -68,9 +68,36 @@
             </div>
             <div class="card-body">
                 <div id="alertaProducto"></div>
-                <input type="text" id="buscadorProducto" class="form-control mb-2"
-                       placeholder="Escribe nombre o código del producto...">
-                <div id="listaProductos" style="max-height:250px; overflow-y:auto; display:none;">
+
+                {{-- Filtros de búsqueda --}}
+                <div class="row g-2 mb-3">
+                    <div class="col-md-4">
+                        <input type="text" id="buscadorProducto" class="form-control"
+                               placeholder="Nombre o código...">
+                    </div>
+                    <div class="col-md-2">
+                        <select id="filtroCategoria" class="form-select">
+                            <option value="">Categoría</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <select id="filtroTalla" class="form-select">
+                            <option value="">Talla</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <select id="filtroColor" class="form-select">
+                            <option value="">Color</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <button onclick="buscarConFiltros()" class="btn btn-primary w-100">
+                            <i class="bi bi-search"></i> Buscar
+                        </button>
+                    </div>
+                </div>
+
+                <div id="listaProductos" style="max-height:280px; overflow-y:auto; display:none;">
                     <table class="table table-sm table-hover mb-0">
                         <thead class="table-light">
                             <tr>
@@ -161,23 +188,64 @@
 
 @section('scripts')
 <script>
-let timeoutBusqueda;
-const ordenId = {{ $orden['id'] }};
+const ordenId  = {{ $orden['id'] }};
 const apiToken = document.querySelector('meta[name="api-token"]').content;
 const csrfToken = document.querySelector('meta[name="csrf-token"]').content;
 
-document.getElementById('buscadorProducto')?.addEventListener('input', function() {
-    clearTimeout(timeoutBusqueda);
-    const q = this.value.trim();
-    if (q.length < 2) {
-        document.getElementById('listaProductos').style.display = 'none';
-        return;
-    }
-    timeoutBusqueda = setTimeout(() => buscarProductos(q), 400);
+// Cargar filtros dinámicos al iniciar
+document.addEventListener('DOMContentLoaded', function() {
+    cargarFiltros();
 });
 
-function buscarProductos(q) {
-    fetch(`/api/products?search=${encodeURIComponent(q)}&status=disponible`, {
+function cargarFiltros() {
+    fetch(`/api/products?status=disponible`, {
+        headers: {
+            'Accept': 'application/json',
+            'Authorization': 'Bearer ' + apiToken
+        }
+    })
+    .then(r => r.json())
+    .then(productos => {
+        if (!Array.isArray(productos)) return;
+
+        const categorias = [...new Set(productos.map(p => p.category))].sort();
+        const tallas     = [...new Set(productos.map(p => p.size))].sort();
+        const colores    = [...new Set(productos.map(p => p.color))].sort();
+
+        llenarSelect('filtroCategoria', 'Categoría', categorias);
+        llenarSelect('filtroTalla',     'Talla',     tallas);
+        llenarSelect('filtroColor',     'Color',     colores);
+    });
+}
+
+function llenarSelect(id, placeholder, opciones) {
+    const select = document.getElementById(id);
+    select.innerHTML = `<option value="">${placeholder}</option>`;
+    opciones.forEach(op => {
+        select.innerHTML += `<option value="${op}">${op}</option>`;
+    });
+}
+
+// Buscar al escribir con debounce
+let timeout;
+document.getElementById('buscadorProducto')?.addEventListener('input', function() {
+    clearTimeout(timeout);
+    timeout = setTimeout(() => buscarConFiltros(), 400);
+});
+
+function buscarConFiltros() {
+    const search   = document.getElementById('buscadorProducto').value.trim();
+    const category = document.getElementById('filtroCategoria').value;
+    const size     = document.getElementById('filtroTalla').value;
+    const color    = document.getElementById('filtroColor').value;
+
+    let params = new URLSearchParams({ status: 'disponible' });
+    if (search)   params.append('search',   search);
+    if (category) params.append('category', category);
+    if (size)     params.append('size',     size);
+    if (color)    params.append('color',    color);
+
+    fetch(`/api/products?${params.toString()}`, {
         headers: {
             'Accept': 'application/json',
             'Authorization': 'Bearer ' + apiToken
@@ -200,7 +268,8 @@ function buscarProductos(q) {
                     <td>$${parseFloat(p.price).toFixed(2)}</td>
                     <td>${p.warehouse ? 'Estante ' + p.warehouse.shelf + ' - Módulo ' + p.warehouse.module : 'Sin asignar'}</td>
                     <td>
-                        <button type="button" onclick="agregarProducto(${p.id}, this)" class="btn btn-sm btn-success">
+                        <button type="button" onclick="agregarProducto(${p.id}, this)"
+                                class="btn btn-sm btn-success">
                             <i class="bi bi-plus"></i> Agregar
                         </button>
                     </td>
