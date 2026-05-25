@@ -14,13 +14,11 @@ class VentasController extends Controller
     {
         $ordenes = Order::with(['items.product', 'seller'])
             ->where('status', 'enviada_a_caja')
-            ->get()
-            ->toArray();
+            ->get()->toArray();
 
         $ventas = Sale::with(['order.items.product', 'cashier'])
             ->orderBy('created_at', 'desc')
-            ->get()
-            ->toArray();
+            ->get()->toArray();
 
         return view('ventas.index', compact('ordenes', 'ventas'));
     }
@@ -41,7 +39,7 @@ class VentasController extends Controller
             return back()->with('error', 'Esta orden ya fue pagada.');
         }
 
-        $total = $order->items->sum('unit_price');
+        $total = $order->items->sum(fn($item) => $item->unit_price * $item->quantity);
 
         $sale = Sale::create([
             'order_id'       => $order->id,
@@ -55,18 +53,25 @@ class VentasController extends Controller
             SaleItem::create([
                 'sale_id'    => $sale->id,
                 'product_id' => $item->product_id,
+                'quantity'   => $item->quantity,
                 'unit_price' => $item->unit_price,
             ]);
 
-            $item->product->update(['status' => 'vendido']);
+            $product = $item->product;
+            $product->update([
+                'stock_reservado' => max(0, $product->stock_reservado - $item->quantity),
+                'stock_vendido'   => $product->stock_vendido + $item->quantity,
+            ]);
+
+            $product->recalcularEstado();
 
             History::create([
                 'product_id'  => $item->product_id,
                 'user_id'     => session('user.id'),
                 'action'      => 'vendido',
                 'from_status' => 'reservado',
-                'to_status'   => 'vendido',
-                'notes'       => 'Venta #'.$sale->id.' procesada.',
+                'to_status'   => $product->fresh()->status,
+                'notes'       => $item->quantity.' unidad(es) vendidas. Venta #'.$sale->id,
             ]);
         }
 
@@ -88,7 +93,15 @@ class VentasController extends Controller
         }
 
         foreach ($order->items as $item) {
-            $item->product->update(['status' => 'disponible']);
+            $product  = $item->product;
+            $quantity = $item->quantity;
+
+            $product->update([
+                'stock_disponible' => $product->stock_disponible + $quantity,
+                'stock_reservado'  => max(0, $product->stock_reservado - $quantity),
+            ]);
+
+            $product->recalcularEstado();
 
             History::create([
                 'product_id'  => $item->product_id,
@@ -96,7 +109,7 @@ class VentasController extends Controller
                 'action'      => 'cancelado',
                 'from_status' => 'reservado',
                 'to_status'   => 'disponible',
-                'notes'       => 'Orden #'.$order->id.' cancelada en caja.',
+                'notes'       => $quantity.' unidad(es) liberadas. Orden #'.$order->id.' cancelada en caja.',
             ]);
         }
 

@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Http;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Product;
@@ -24,7 +23,6 @@ class OrdenesController extends Controller
         }
 
         $ordenes = $query->orderBy('created_at', 'desc')->get()->toArray();
-
         return view('ordenes.index', compact('ordenes'));
     }
 
@@ -65,6 +63,7 @@ class OrdenesController extends Controller
     public function addItem(Request $request, string $id)
     {
         $productId = $request->input('product_id');
+        $quantity  = max(1, (int) $request->input('quantity', 1));
 
         if (!$productId) {
             return response()->json(['success' => false, 'message' => 'No se recibió el producto.'], 400);
@@ -84,33 +83,49 @@ class OrdenesController extends Controller
             return response()->json(['success' => false, 'message' => 'Producto no encontrado.'], 400);
         }
 
-        if ($product->status !== 'disponible') {
-            return response()->json(['success' => false, 'message' => 'El producto no está disponible. Estado: '.$product->status], 400);
+        if ($product->stock_disponible <= 0) {
+            return response()->json(['success' => false, 'message' => 'No hay stock disponible para este producto.'], 400);
         }
 
+        if ($quantity > $product->stock_disponible) {
+            return response()->json(['success' => false, 'message' => 'Solo hay '.$product->stock_disponible.' unidades disponibles.'], 400);
+        }
+
+        // Verificar si ya existe en la orden y sumar
         $existing = OrderItem::where('order_id', $order->id)
                              ->where('product_id', $product->id)
                              ->first();
 
         if ($existing) {
-            return response()->json(['success' => false, 'message' => 'El producto ya está en la orden.'], 400);
+            $nuevaCantidad = $existing->quantity + $quantity;
+            if ($nuevaCantidad > $product->stock_disponible + $existing->quantity) {
+                return response()->json(['success' => false, 'message' => 'No hay suficiente stock.'], 400);
+            }
+            $existing->update(['quantity' => $nuevaCantidad]);
+        } else {
+            OrderItem::create([
+                'order_id'   => $order->id,
+                'product_id' => $product->id,
+                'quantity'   => $quantity,
+                'unit_price' => $product->price,
+            ]);
         }
 
-        $product->update(['status' => 'reservado']);
+        // Actualizar stock
+        $product->update([
+            'stock_disponible' => $product->stock_disponible - $quantity,
+            'stock_reservado'  => $product->stock_reservado  + $quantity,
+        ]);
+
+        $product->recalcularEstado();
 
         History::create([
             'product_id'  => $product->id,
             'user_id'     => session('user.id'),
             'action'      => 'reservado',
             'from_status' => 'disponible',
-            'to_status'   => 'reservado',
-            'notes'       => 'Reservado al agregar a orden #'.$order->id,
-        ]);
-
-        OrderItem::create([
-            'order_id'   => $order->id,
-            'product_id' => $product->id,
-            'unit_price' => $product->price,
+            'to_status'   => $product->fresh()->status,
+            'notes'       => $quantity.' unidad(es) reservadas para orden #'.$order->id,
         ]);
 
         $order->update(['status' => 'en_proceso']);
@@ -126,8 +141,15 @@ class OrdenesController extends Controller
             return back()->with('error', 'Item no encontrado.');
         }
 
-        $product = $item->product;
-        $product->update(['status' => 'disponible']);
+        $product  = $item->product;
+        $quantity = $item->quantity;
+
+        $product->update([
+            'stock_disponible' => $product->stock_disponible + $quantity,
+            'stock_reservado'  => max(0, $product->stock_reservado - $quantity),
+        ]);
+
+        $product->recalcularEstado();
 
         History::create([
             'product_id'  => $product->id,
@@ -135,7 +157,7 @@ class OrdenesController extends Controller
             'action'      => 'liberado',
             'from_status' => 'reservado',
             'to_status'   => 'disponible',
-            'notes'       => 'Producto removido de la orden #'.$id,
+            'notes'       => $quantity.' unidad(es) liberadas de orden #'.$id,
         ]);
 
         $item->delete();
@@ -178,7 +200,15 @@ class OrdenesController extends Controller
         }
 
         foreach ($order->items as $item) {
-            $item->product->update(['status' => 'disponible']);
+            $product  = $item->product;
+            $quantity = $item->quantity;
+
+            $product->update([
+                'stock_disponible' => $product->stock_disponible + $quantity,
+                'stock_reservado'  => max(0, $product->stock_reservado - $quantity),
+            ]);
+
+            $product->recalcularEstado();
 
             History::create([
                 'product_id'  => $item->product_id,
@@ -186,7 +216,7 @@ class OrdenesController extends Controller
                 'action'      => 'cancelado',
                 'from_status' => 'reservado',
                 'to_status'   => 'disponible',
-                'notes'       => 'Orden #'.$order->id.' cancelada.',
+                'notes'       => $quantity.' unidad(es) liberadas. Orden #'.$order->id.' cancelada.',
             ]);
         }
 

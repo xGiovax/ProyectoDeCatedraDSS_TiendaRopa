@@ -19,38 +19,48 @@
                     <div class="row g-3">
                         <div class="col-md-6">
                             <label class="form-label">Nombre</label>
-                            <input type="text" name="name" class="form-control" value="{{ old('name', $producto['name']) }}" required>
+                            <input type="text" name="name" class="form-control"
+                                   value="{{ old('name', $producto['name']) }}" required>
                         </div>
                         <div class="col-md-6">
                             <label class="form-label">Código único</label>
-                            <input type="text" name="code" class="form-control" value="{{ old('code', $producto['code']) }}" required>
+                            <input type="text" name="code" class="form-control"
+                                   value="{{ old('code', $producto['code']) }}" required>
                         </div>
                         <div class="col-md-6">
                             <label class="form-label">Categoría</label>
-                            <input type="text" name="category" class="form-control" value="{{ old('category', $producto['category']) }}" required>
+                            <input type="text" name="category" class="form-control"
+                                   value="{{ old('category', $producto['category']) }}" required>
                         </div>
                         <div class="col-md-3">
                             <label class="form-label">Talla</label>
-                            <input type="text" name="size" class="form-control" value="{{ old('size', $producto['size']) }}" required>
+                            <input type="text" name="size" class="form-control"
+                                   value="{{ old('size', $producto['size']) }}" required>
                         </div>
                         <div class="col-md-3">
                             <label class="form-label">Color</label>
-                            <input type="text" name="color" class="form-control" value="{{ old('color', $producto['color']) }}" required>
+                            <input type="text" name="color" class="form-control"
+                                   value="{{ old('color', $producto['color']) }}" required>
                         </div>
                         <div class="col-md-6">
                             <label class="form-label">Precio</label>
                             <div class="input-group">
                                 <span class="input-group-text">$</span>
-                                <input type="number" name="price" step="0.01" min="0" class="form-control" value="{{ old('price', $producto['price']) }}" required>
+                                <input type="number" name="price" step="0.01" min="0"
+                                       class="form-control"
+                                       value="{{ old('price', $producto['price']) }}" required>
                             </div>
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label">Estado</label>
-                            <select name="status" class="form-select">
-                                <option value="disponible" {{ $producto['status'] === 'disponible' ? 'selected' : '' }}>Disponible</option>
-                                <option value="reservado"  {{ $producto['status'] === 'reservado'  ? 'selected' : '' }}>Reservado</option>
-                                <option value="vendido"    {{ $producto['status'] === 'vendido'    ? 'selected' : '' }}>Vendido</option>
-                            </select>
+                            <label class="form-label">Stock total</label>
+                            <input type="number" name="stock" min="0" class="form-control"
+                                   value="{{ old('stock', $producto['stock']) }}" required>
+                            <small class="text-muted">
+                                Actual: {{ $producto['stock'] }} |
+                                Disponible: {{ $producto['stock_disponible'] }} |
+                                Reservado: {{ $producto['stock_reservado'] }} |
+                                Vendido: {{ $producto['stock_vendido'] }}
+                            </small>
                         </div>
                         <div class="col-md-6">
                             <label class="form-label">Ubicación en bodega</label>
@@ -69,7 +79,6 @@
                             <textarea name="description" class="form-control" rows="3">{{ old('description', $producto['description']) }}</textarea>
                         </div>
                     </div>
-
                     <div class="d-flex gap-2 mt-4">
                         <button type="submit" class="btn btn-primary">
                             <i class="bi bi-save me-1"></i> Actualizar Producto

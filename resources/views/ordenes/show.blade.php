@@ -12,7 +12,7 @@
         'cancelada'      => 'danger',
         default          => 'secondary'
     };
-    $total = collect($orden['items'])->sum('unit_price');
+    $total = collect($orden['items'])->sum(fn($i) => $i['unit_price'] * $i['quantity']);
 @endphp
 
 <div class="row g-4">
@@ -35,7 +35,6 @@
                 <p><strong>Notas:</strong> {{ $orden['notes'] }}</p>
                 @endif
             </div>
-
             @if(in_array(session('role'), ['vendedor', 'administrador']))
             <div class="card-footer d-flex gap-2 flex-wrap">
                 @if($orden['status'] === 'en_proceso')
@@ -48,7 +47,7 @@
                 @endif
                 @if(in_array($orden['status'], ['pendiente', 'en_proceso']))
                 <form method="POST" action="{{ route('ordenes.cancel', $orden['id']) }}"
-                      onsubmit="return confirm('¿Cancelar esta orden? Los productos volverán a estar disponibles.')">
+                      onsubmit="return confirm('¿Cancelar esta orden? El stock volverá a estar disponible.')">
                     @csrf
                     <button class="btn btn-danger btn-sm">
                         <i class="bi bi-x-circle me-1"></i> Cancelar Orden
@@ -68,10 +67,8 @@
             </div>
             <div class="card-body">
                 <div id="alertaProducto"></div>
-
-                {{-- Filtros de búsqueda --}}
                 <div class="row g-2 mb-3">
-                    <div class="col-md-4">
+                    <div class="col-md-3">
                         <input type="text" id="buscadorProducto" class="form-control"
                                placeholder="Nombre o código...">
                     </div>
@@ -90,13 +87,16 @@
                             <option value="">Color</option>
                         </select>
                     </div>
+                    <div class="col-md-1">
+                        <input type="number" id="filtroCantidad" class="form-control"
+                               min="1" value="1" title="Cantidad">
+                    </div>
                     <div class="col-md-2">
                         <button onclick="buscarConFiltros()" class="btn btn-primary w-100">
                             <i class="bi bi-search"></i> Buscar
                         </button>
                     </div>
                 </div>
-
                 <div id="listaProductos" style="max-height:280px; overflow-y:auto; display:none;">
                     <table class="table table-sm table-hover mb-0">
                         <thead class="table-light">
@@ -106,6 +106,7 @@
                                 <th>Talla</th>
                                 <th>Color</th>
                                 <th>Precio</th>
+                                <th>Disponible</th>
                                 <th>Ubicación</th>
                                 <th></th>
                             </tr>
@@ -114,7 +115,7 @@
                     </table>
                 </div>
                 <small class="text-muted mt-1 d-block">
-                    Solo productos <strong>disponibles</strong>. Se reservan automáticamente al agregarlos.
+                    Solo productos con stock <strong>disponible</strong>. Se reservan automáticamente.
                 </small>
             </div>
         </div>
@@ -132,7 +133,9 @@
                             <th>Producto</th>
                             <th>Talla</th>
                             <th>Color</th>
-                            <th>Precio</th>
+                            <th>Cant.</th>
+                            <th>Precio Unit.</th>
+                            <th>Subtotal</th>
                             @if(in_array($orden['status'], ['pendiente', 'en_proceso']))
                             <th></th>
                             @endif
@@ -145,12 +148,14 @@
                             <td>{{ $item['product']['name'] }}</td>
                             <td>{{ $item['product']['size'] }}</td>
                             <td>{{ $item['product']['color'] }}</td>
+                            <td><span class="badge bg-primary">{{ $item['quantity'] }}</span></td>
                             <td>${{ number_format($item['unit_price'], 2) }}</td>
+                            <td>${{ number_format($item['unit_price'] * $item['quantity'], 2) }}</td>
                             @if(in_array($orden['status'], ['pendiente', 'en_proceso']))
                             <td>
                                 <form method="POST"
                                       action="{{ route('ordenes.removeItem', [$orden['id'], $item['id']]) }}"
-                                      onsubmit="return confirm('¿Remover este producto? Volverá a estar disponible.')">
+                                      onsubmit="return confirm('¿Remover este producto? El stock volverá a estar disponible.')">
                                     @csrf @method('DELETE')
                                     <button class="btn btn-sm btn-outline-danger">
                                         <i class="bi bi-trash"></i>
@@ -161,14 +166,14 @@
                         </tr>
                         @empty
                         <tr>
-                            <td colspan="6" class="text-center text-muted py-3">No hay productos en esta orden.</td>
+                            <td colspan="8" class="text-center text-muted py-3">No hay productos en esta orden.</td>
                         </tr>
                         @endforelse
                     </tbody>
                     @if(count($orden['items']) > 0)
                     <tfoot class="table-light">
                         <tr>
-                            <td colspan="4" class="text-end fw-bold">Total:</td>
+                            <td colspan="6" class="text-end fw-bold">Total:</td>
                             <td colspan="2" class="fw-bold">${{ number_format($total, 2) }}</td>
                         </tr>
                     </tfoot>
@@ -188,45 +193,31 @@
 
 @section('scripts')
 <script>
-const ordenId  = {{ $orden['id'] }};
-const apiToken = document.querySelector('meta[name="api-token"]').content;
+const ordenId   = {{ $orden['id'] }};
+const apiToken  = document.querySelector('meta[name="api-token"]').content;
 const csrfToken = document.querySelector('meta[name="csrf-token"]').content;
 
-// Cargar filtros dinámicos al iniciar
-document.addEventListener('DOMContentLoaded', function() {
-    cargarFiltros();
-});
+document.addEventListener('DOMContentLoaded', () => cargarFiltros());
 
 function cargarFiltros() {
     fetch(`/api/products?status=disponible`, {
-        headers: {
-            'Accept': 'application/json',
-            'Authorization': 'Bearer ' + apiToken
-        }
+        headers: { 'Accept': 'application/json', 'Authorization': 'Bearer ' + apiToken }
     })
     .then(r => r.json())
     .then(productos => {
         if (!Array.isArray(productos)) return;
-
-        const categorias = [...new Set(productos.map(p => p.category))].sort();
-        const tallas     = [...new Set(productos.map(p => p.size))].sort();
-        const colores    = [...new Set(productos.map(p => p.color))].sort();
-
-        llenarSelect('filtroCategoria', 'Categoría', categorias);
-        llenarSelect('filtroTalla',     'Talla',     tallas);
-        llenarSelect('filtroColor',     'Color',     colores);
+        llenarSelect('filtroCategoria', 'Categoría', [...new Set(productos.map(p => p.category))].sort());
+        llenarSelect('filtroTalla',     'Talla',     [...new Set(productos.map(p => p.size))].sort());
+        llenarSelect('filtroColor',     'Color',     [...new Set(productos.map(p => p.color))].sort());
     });
 }
 
 function llenarSelect(id, placeholder, opciones) {
     const select = document.getElementById(id);
     select.innerHTML = `<option value="">${placeholder}</option>`;
-    opciones.forEach(op => {
-        select.innerHTML += `<option value="${op}">${op}</option>`;
-    });
+    opciones.forEach(op => select.innerHTML += `<option value="${op}">${op}</option>`);
 }
 
-// Buscar al escribir con debounce
 let timeout;
 document.getElementById('buscadorProducto')?.addEventListener('input', function() {
     clearTimeout(timeout);
@@ -246,10 +237,7 @@ function buscarConFiltros() {
     if (color)    params.append('color',    color);
 
     fetch(`/api/products?${params.toString()}`, {
-        headers: {
-            'Accept': 'application/json',
-            'Authorization': 'Bearer ' + apiToken
-        }
+        headers: { 'Accept': 'application/json', 'Authorization': 'Bearer ' + apiToken }
     })
     .then(r => r.json())
     .then(productos => {
@@ -257,7 +245,7 @@ function buscarConFiltros() {
         const lista = document.getElementById('listaProductos');
 
         if (!Array.isArray(productos) || productos.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-2">No se encontraron productos disponibles.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-2">No se encontraron productos disponibles.</td></tr>';
         } else {
             tbody.innerHTML = productos.map(p => `
                 <tr id="fila-${p.id}">
@@ -266,9 +254,10 @@ function buscarConFiltros() {
                     <td>${p.size}</td>
                     <td>${p.color}</td>
                     <td>$${parseFloat(p.price).toFixed(2)}</td>
+                    <td><span class="badge bg-success">${p.stock_disponible}</span></td>
                     <td>${p.warehouse ? 'Estante ' + p.warehouse.shelf + ' - Módulo ' + p.warehouse.module : 'Sin asignar'}</td>
                     <td>
-                        <button type="button" onclick="agregarProducto(${p.id}, this)"
+                        <button type="button" onclick="agregarProducto(${p.id}, ${p.stock_disponible}, this)"
                                 class="btn btn-sm btn-success">
                             <i class="bi bi-plus"></i> Agregar
                         </button>
@@ -280,12 +269,23 @@ function buscarConFiltros() {
     })
     .catch(() => {
         document.getElementById('tablaProductos').innerHTML =
-            '<tr><td colspan="7" class="text-center text-danger">Error al buscar productos.</td></tr>';
+            '<tr><td colspan="8" class="text-center text-danger">Error al buscar productos.</td></tr>';
         document.getElementById('listaProductos').style.display = 'block';
     });
 }
 
-function agregarProducto(productId, btn) {
+function agregarProducto(productId, stockDisponible, btn) {
+    const cantidad = parseInt(document.getElementById('filtroCantidad').value) || 1;
+
+    if (cantidad > stockDisponible) {
+        document.getElementById('alertaProducto').innerHTML =
+            `<div class="alert alert-warning alert-dismissible">
+                Solo hay ${stockDisponible} unidades disponibles.
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>`;
+        return;
+    }
+
     btn.disabled = true;
     btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
 
@@ -296,7 +296,7 @@ function agregarProducto(productId, btn) {
             'Accept': 'application/json',
             'X-CSRF-TOKEN': csrfToken
         },
-        body: `product_id=${productId}&_token=${csrfToken}`
+        body: `product_id=${productId}&quantity=${cantidad}&_token=${csrfToken}`
     })
     .then(r => r.json())
     .then(data => {
