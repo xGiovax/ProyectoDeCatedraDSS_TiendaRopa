@@ -1,59 +1,305 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# 🛍️ Sistema de Gestión - Tienda de Ropa
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+Sistema web desarrollado con **Laravel 12** + **MySQL** que permite gestionar productos, inventario, órdenes y ventas de una tienda de ropa. Incluye una API REST con autenticación mediante Laravel Sanctum y un frontend construido con Blade + Bootstrap 5.
 
-## About Laravel
+---
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+## 📋 Requisitos previos
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+- PHP 8.2 o superior
+- Composer 2.x
+- MySQL 5.7 o superior (XAMPP recomendado)
+- Node.js 18 o superior
+- NPM
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+---
 
-## Learning Laravel
+## ⚙️ Instalación y configuración
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework. You can also check out [Laravel Learn](https://laravel.com/learn), where you will be guided through building a modern Laravel application.
+### 1. Clonar o descargar el proyecto
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+```bash
+git clone https://github.com/tu-usuario/tienda-ropa.git
+cd tienda-ropa
+```
 
-## Laravel Sponsors
+### 2. Instalar dependencias PHP
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
+```bash
+composer install
+```
 
-### Premium Partners
+### 3. Instalar dependencias Node
 
-- **[Vehikl](https://vehikl.com)**
-- **[Tighten Co.](https://tighten.co)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Redberry](https://redberry.international/laravel-development)**
-- **[Active Logic](https://activelogic.com)**
+```bash
+npm install
+```
 
-## Contributing
+### 4. Configurar el archivo de entorno
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+Copia el archivo de ejemplo y edítalo:
 
-## Code of Conduct
+```bash
+cp .env.example .env
+```
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+Edita `.env` con tus datos:
 
-## Security Vulnerabilities
+```env
+APP_NAME="Tienda Ropa"
+APP_ENV=local
+APP_DEBUG=true
+APP_URL=http://127.0.0.1:8000
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+DB_CONNECTION=mysql
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_DATABASE=tienda_ropa
+DB_USERNAME=root
+DB_PASSWORD=
+```
 
-## License
+### 5. Generar clave de aplicación
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+```bash
+php artisan key:generate
+```
+
+### 6. Crear la base de datos
+
+Abre phpMyAdmin en `http://localhost/phpmyadmin` y crea una base de datos llamada `tienda_ropa` con cotejamiento `utf8mb4_unicode_ci`.
+
+### 7. Ejecutar migraciones y seeders
+
+```bash
+php artisan migrate:fresh --seed
+```
+
+### 8. Iniciar el servidor
+
+```bash
+php artisan serve
+```
+
+Accede al sistema en: `http://127.0.0.1:8000`
+
+---
+
+## 👥 Usuarios de prueba
+
+| Rol           | Email                  | Contraseña |
+|---------------|------------------------|------------|
+| Administrador | admin@tienda.com       | password   |
+| Vendedor      | vendedor@tienda.com    | password   |
+| Cajero        | cajero@tienda.com      | password   |
+
+---
+
+## 🏗️ Estructura del sistema
+
+### Módulos principales
+
+| Módulo    | Descripción                              |
+|-----------|------------------------------------------|
+| Usuarios  | Gestión de usuarios y roles              |
+| Productos | CRUD con control de stock                |
+| Bodegas   | Ubicaciones físicas de productos         |
+| Órdenes   | Gestión del proceso de venta             |
+| Ventas    | Procesamiento de pagos                   |
+| Reportes  | Estadísticas y análisis                  |
+| Historial | Registro de movimientos de inventario    |
+
+### Roles y permisos
+
+| Funcionalidad       | Administrador | Vendedor | Cajero |
+|---------------------|---------------|----------|--------|
+| CRUD Productos      | ✅            | ❌       | ❌     |
+| Ver Productos       | ✅            | ✅       | ❌     |
+| Gestionar Usuarios  | ✅            | ❌       | ❌     |
+| Gestionar Bodegas   | ✅            | ❌       | ❌     |
+| Crear Órdenes       | ✅            | ✅       | ❌     |
+| Gestionar Órdenes   | ✅            | ✅       | ❌     |
+| Ver Órdenes en Caja | ✅            | ❌       | ✅     |
+| Procesar Pagos      | ✅            | ❌       | ✅     |
+| Ver Reportes        | ✅            | ❌       | ❌     |
+| Ver Historial       | ✅            | ❌       | ❌     |
+
+---
+
+## 🔄 Flujo del sistema
+
+1. Vendedor crea una orden para un cliente
+2. Vendedor busca y agrega productos a la orden
+   - El stock se reserva automáticamente
+3. Vendedor envía la orden a caja
+4. Cajero ve la orden en su panel
+5. Cajero procesa el pago (efectivo o tarjeta)
+   - El stock se actualiza automáticamente
+   - Se registra la venta en el historial
+6. Si el cliente cancela → productos vuelven a disponible
+
+### Estados de productos
+
+disponible → reservado → vendido
+     ↑____________|
+   (si se cancela)
+
+### Estados de órdenes
+
+pendiente → en_proceso → enviada_a_caja → pagada
+     └──────────────────────┘
+              cancelada
+
+---
+
+## 🌐 API REST - Endpoints
+
+Base URL: http://127.0.0.1:8000/api
+
+### Autenticación
+
+| Método | Endpoint  | Descripción        | Acceso      |
+|--------|-----------|--------------------|-------------|
+| POST   | /login    | Iniciar sesión     | Público     |
+| POST   | /logout   | Cerrar sesión      | Autenticado |
+| GET    | /me       | Usuario actual     | Autenticado |
+
+Ejemplo de login:
+POST /api/login
+{
+    "email": "admin@tienda.com",
+    "password": "password"
+}
+
+Respuesta:
+{
+    "message": "Inicio de sesión exitoso.",
+    "token": "1|xxxxxxxxxxxxx",
+    "user": {
+        "id": 1,
+        "name": "Administrador",
+        "email": "admin@tienda.com",
+        "role": "administrador"
+    }
+}
+
+### Productos
+
+| Método | Endpoint               | Descripción        | Acceso          |
+|--------|------------------------|--------------------|-----------------|
+| GET    | /products              | Listar productos   | Admin, Vendedor |
+| POST   | /products              | Crear producto     | Admin           |
+| GET    | /products/{id}         | Ver producto       | Admin, Vendedor |
+| PUT    | /products/{id}         | Actualizar producto| Admin           |
+| DELETE | /products/{id}         | Eliminar producto  | Admin           |
+| POST   | /products/{id}/reserve | Reservar producto  | Admin, Vendedor |
+
+Filtros disponibles en GET /products:
+  ?search=camiseta
+  ?status=disponible|reservado|vendido
+  ?category=Camisetas
+  ?size=M
+  ?color=Negro
+
+### Usuarios
+
+| Método | Endpoint     | Descripción       | Acceso |
+|--------|--------------|-------------------|--------|
+| GET    | /users       | Listar usuarios   | Admin  |
+| POST   | /users       | Crear usuario     | Admin  |
+| GET    | /users/{id}  | Ver usuario       | Admin  |
+| PUT    | /users/{id}  | Actualizar usuario| Admin  |
+| DELETE | /users/{id}  | Eliminar usuario  | Admin  |
+
+### Bodegas
+
+| Método | Endpoint          | Descripción       | Acceso |
+|--------|-------------------|-------------------|--------|
+| GET    | /warehouses       | Listar bodegas    | Admin  |
+| POST   | /warehouses       | Crear bodega      | Admin  |
+| GET    | /warehouses/{id}  | Ver bodega        | Admin  |
+| PUT    | /warehouses/{id}  | Actualizar bodega | Admin  |
+| DELETE | /warehouses/{id}  | Eliminar bodega   | Admin  |
+
+### Órdenes
+
+| Método | Endpoint                          | Descripción        | Acceso                    |
+|--------|-----------------------------------|--------------------|---------------------------|
+| GET    | /orders                           | Listar órdenes     | Admin, Vendedor, Cajero   |
+| POST   | /orders                           | Crear orden        | Admin, Vendedor           |
+| GET    | /orders/{id}                      | Ver orden          | Admin, Vendedor, Cajero   |
+| POST   | /orders/{id}/items                | Agregar producto   | Admin, Vendedor           |
+| DELETE | /orders/{id}/items/{itemId}       | Remover producto   | Admin, Vendedor           |
+| POST   | /orders/{id}/send-to-cashier      | Enviar a caja      | Admin, Vendedor           |
+| POST   | /orders/{id}/cancel               | Cancelar orden     | Admin, Vendedor           |
+
+### Ventas
+
+| Método | Endpoint                          | Descripción        | Acceso          |
+|--------|-----------------------------------|--------------------|-----------------|
+| GET    | /sales                            | Listar ventas      | Admin, Cajero   |
+| GET    | /sales/{id}                       | Ver venta          | Admin, Cajero   |
+| POST   | /orders/{id}/process-payment      | Procesar pago      | Admin, Cajero   |
+
+### Reportes
+
+| Método | Endpoint                          | Descripción              | Acceso |
+|--------|-----------------------------------|--------------------------|--------|
+| GET    | /reports/dashboard                | Resumen general          | Admin  |
+| GET    | /reports/ventas-diarias           | Ventas por día           | Admin  |
+| GET    | /reports/productos-mas-vendidos   | Top productos vendidos   | Admin  |
+| GET    | /reports/inventario               | Estado del inventario    | Admin  |
+
+### Historial
+
+| Método | Endpoint        | Descripción          | Acceso |
+|--------|-----------------|----------------------|--------|
+| GET    | /history        | Listar movimientos   | Admin  |
+| GET    | /history/{id}   | Ver movimiento       | Admin  |
+
+Filtros disponibles en GET /history:
+  ?action=reservado|vendido|cancelado|liberado
+  ?product_id=1
+
+---
+
+## 🗄️ Base de datos
+
+### Tablas principales
+
+| Tabla        | Descripción                              |
+|--------------|------------------------------------------|
+| users        | Usuarios del sistema con roles           |
+| products     | Productos con control de stock           |
+| warehouses   | Ubicaciones en bodega                    |
+| orders       | Órdenes de clientes                      |
+| order_items  | Productos dentro de cada orden           |
+| sales        | Ventas procesadas                        |
+| sale_items   | Productos dentro de cada venta           |
+| history      | Historial de movimientos de inventario   |
+
+---
+
+## 🔒 Seguridad
+
+- Autenticación mediante Laravel Sanctum (tokens Bearer)
+- Control de acceso por roles con middleware personalizado
+- Validación de datos en todos los endpoints
+- Contraseñas encriptadas con bcrypt
+- Protección CSRF en formularios web
+- Consultas preparadas mediante Eloquent ORM
+
+---
+
+## 🛠️ Tecnologías utilizadas
+
+| Tecnología       | Versión | Uso                  |
+|------------------|---------|----------------------|
+| Laravel          | 12.x    | Framework backend    |
+| PHP              | 8.2     | Lenguaje backend     |
+| MySQL            | 8.x     | Base de datos        |
+| Laravel Sanctum  | 4.x     | Autenticación API    |
+| Bootstrap        | 5.3     | Framework CSS        |
+| Bootstrap Icons  | 1.11    | Iconografía          |
+
+---
